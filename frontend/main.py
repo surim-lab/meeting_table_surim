@@ -11,7 +11,8 @@ from styles import inject_styles
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-SLOT_OPTIONS = [f"{hour:02d}:00" for hour in range(8, 23)]
+HOUR_OPTIONS = list(range(0, 24))
+MINUTE_OPTIONS = list(range(0, 60, 10))
 
 
 def api_get(path: str, params: dict | None = None) -> dict | list:
@@ -64,20 +65,17 @@ def get_day_options(year: int, month: int) -> list[int]:
     return list(range(1, last_day + 1))
 
 
-def make_slots(year: int, month: int, days: list[int], times: list[str]) -> list[dict[str, str]]:
+def make_slots(year: int, month: int, days: list[int], start_time: str, end_time: str) -> list[dict[str, str]]:
     slots = []
     for day in sorted(days):
         slot_date = date(year, month, day).isoformat()
-        for start_time in sorted(times):
-            hour = int(start_time.split(":")[0])
-            end_time = f"{hour + 1:02d}:00"
-            slots.append(
-                {
-                    "date": slot_date,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                }
-            )
+        slots.append(
+            {
+                "date": slot_date,
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+        )
     return slots
 
 
@@ -85,6 +83,14 @@ def format_slot(slot: dict) -> str:
     month = int(slot["date"].split("-")[1])
     day = int(slot["date"].split("-")[2])
     return f"{month}월 {day}일 {slot['start_time']} - {slot['end_time']}"
+
+
+def to_minutes(hour: int, minute: int) -> int:
+    return hour * 60 + minute
+
+
+def format_hm(hour: int, minute: int) -> str:
+    return f"{hour:02d}:{minute:02d}"
 
 
 def render_summary(summary: dict) -> None:
@@ -172,18 +178,40 @@ def main() -> None:
             year = st.number_input("연도", min_value=current_year, max_value=current_year + 2, value=current_year, step=1)
             month = st.selectbox("월", list(range(1, 13)), index=date.today().month - 1, format_func=lambda x: f"{x}월")
             days = st.multiselect("일", get_day_options(year, month), format_func=lambda x: f"{x}일")
-            times = st.multiselect("시간 슬롯", SLOT_OPTIONS, default=["10:00", "14:00"], format_func=lambda x: f"{x} - {int(x[:2]) + 1:02d}:00")
 
-            slots = make_slots(year, month, days, times)
-            st.caption(f"선택된 가능 시간: {len(slots)}개")
+            st.markdown("**시작 시간**")
+            start_h_col, start_m_col = st.columns(2)
+            with start_h_col:
+                start_hour = st.selectbox("시작 시", HOUR_OPTIONS, index=10, format_func=lambda x: f"{x:02d}시", key="start_hour")
+            with start_m_col:
+                start_minute = st.selectbox("시작 분", MINUTE_OPTIONS, index=0, format_func=lambda x: f"{x:02d}분", key="start_minute")
+
+            st.markdown("**종료 시간**")
+            end_h_col, end_m_col = st.columns(2)
+            with end_h_col:
+                end_hour = st.selectbox("종료 시", HOUR_OPTIONS, index=11, format_func=lambda x: f"{x:02d}시", key="end_hour")
+            with end_m_col:
+                end_minute = st.selectbox("종료 분", MINUTE_OPTIONS, index=0, format_func=lambda x: f"{x:02d}분", key="end_minute")
+
+            start_time = format_hm(start_hour, start_minute)
+            end_time = format_hm(end_hour, end_minute)
+            time_valid = to_minutes(end_hour, end_minute) > to_minutes(start_hour, start_minute)
+
+            if not time_valid:
+                st.error("종료 시간이 시작 시간보다 이릅니다.")
+            else:
+                st.caption(f"선택된 시간: {start_time} - {end_time} · {len(days)}일")
 
             submitted = st.button("등록하기", type="primary", use_container_width=True)
             if submitted:
                 if not name.strip():
                     st.warning("이름을 입력해주세요.")
-                elif not slots:
-                    st.warning("하나 이상의 날짜와 시간 슬롯을 선택해주세요.")
+                elif not days:
+                    st.warning("하나 이상의 날짜를 선택해주세요.")
+                elif not time_valid:
+                    st.error("종료 시간이 시작 시간보다 이릅니다.")
                 else:
+                    slots = make_slots(year, month, days, start_time, end_time)
                     try:
                         api_post("/participants", {"meeting_name": meeting_name, "name": name, "slots": slots})
                         st.success("가능 시간이 등록되었습니다.")

@@ -60,8 +60,8 @@ class SlotIn(BaseModel):
         if len(parts) != 2 or any(not part.isdigit() for part in parts):
             raise ValueError("time must be HH:MM")
         hour, minute = map(int, parts)
-        if not (0 <= hour <= 23 and minute in {0, 30}):
-            raise ValueError("time must be on a 30-minute boundary")
+        if not (0 <= hour <= 23 and 0 <= minute <= 59 and minute % 10 == 0):
+            raise ValueError("time must be on a 10-minute boundary")
         return f"{hour:02d}:{minute:02d}"
 
 

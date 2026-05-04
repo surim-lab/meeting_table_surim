@@ -10,7 +10,9 @@ services:
     ports:
       - "8333:8000"
     volumes:
+      - ./backend:/app/backend
       - timetable_data:/app/data
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/backend"]
     healthcheck:
       test:
         [
