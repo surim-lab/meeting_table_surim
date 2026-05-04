@@ -1,0 +1,50 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.back
+    image: time_hsr_back:0.1
+    container_name: time-table-backend
+    environment:
+      TIMETABLE_DB: /app/data/time_table.db
+    ports:
+      - "8333:8000"
+    volumes:
+      - timetable_data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.front
+    image: time_hsr_front:0.1
+    container_name: time-table-frontend
+    environment:
+      API_BASE_URL: http://backend:8000
+      STREAMLIT_THEME_BASE: light
+      STREAMLIT_THEME_PRIMARY_COLOR: "#b39ddb"
+      STREAMLIT_THEME_BACKGROUND_COLOR: "#f3e9ff"
+      STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR: "#ffffff"
+      STREAMLIT_THEME_TEXT_COLOR: "#3b3350"
+    volumes:
+      - ./frontend:/app/frontend
+    ports:
+      - "8334:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  timetable_data:
