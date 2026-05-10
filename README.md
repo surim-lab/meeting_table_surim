@@ -56,6 +56,20 @@ Streamlit은 `http://localhost:8334`, FastAPI는 `http://localhost:8333`에서 �
 
 웹 화면에서 먼저 모임 이름을 입력하세요. 예를 들어 `토요일 저녁 약속`을 입력한 사람들은 같은 모임의 참가자와 후보 시간만 볼 수 있습니다.
 
+## 공개 배포
+
+현재 공개 웹사이트는 Google Cloud VM에서 Docker Compose로 실행하고, DuckDNS와 Caddy를 이용해 HTTPS로 노출합니다.
+
+- 공개 주소: `https://***.duckdns.org`
+- DuckDNS: `***.duckdns.org`가 Google Cloud VM의 외부 IP를 가리키도록 갱신합니다.
+- Caddy: `80`, `443` 포트를 받아 Streamlit 프론트엔드 컨테이너(`frontend:8501`)로 reverse proxy합니다.
+- HTTPS 인증서: Caddy가 Let's Encrypt 인증서를 자동 발급하고 갱신합니다.
+- 백엔드: 외부에 직접 공개하지 않고, 프론트엔드 컨테이너가 Docker 내부 네트워크에서 `http://backend:8000`으로 호출합니다.
+- 데이터베이스: SQLite 파일은 `timetable_data` named volume의 `/app/data/time_table.db`에 저장됩니다.
+
+
+HTTPS 배포가 정상 동작하면 외부 방화벽에서는 `80`, `443`, 관리용 `22`만 열어두고, 초기 테스트용 포트인 `8334`는 닫는 것을 권장합니다. DuckDNS 토큰과 DB 백업 파일은 git에 올리지 않습니다.
+
 ## 로컬 실행
 
 백엔드:
@@ -124,6 +138,7 @@ frontend/
 Dockerfile.back             # 백엔드 도커 이미지 정의
 Dockerfile.front            # 프론트엔드 도커 이미지 정의
 docker-compose.yml          # 백엔드, 프론트엔드, SQLite 데이터 volume 구성
+Caddyfile                   # 운영 서버에서 DuckDNS 도메인을 프론트엔드로 연결하는 Caddy reverse proxy 설정
 ```
 
 `docker-compose.yml`은 개발 편의를 위해 `backend/`와 `frontend/`를 컨테이너에 바인드 마운트합니다. 코드 수정 시 자동 반영되며, 백엔드는 `uvicorn --reload`로 재시작됩니다.

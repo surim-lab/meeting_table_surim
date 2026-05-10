@@ -8,4 +8,8 @@ time_table.db
 .streamlit/secrets.toml
 *.sqlite
 *.sqlite3
+backups/
+duckdns/
+duck.log
+duck.sh
 docker-compose
